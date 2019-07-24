@@ -751,12 +751,11 @@ _is_retryable_read (const mongoc_cmd_parts_t *parts,
       return false;
    }
 
-   // TODO: ???
-   // if (!mongoc_uri_get_option_as_bool (parts->client->uri,
-   //                                     MONGOC_URI_RETRYWRITES,
-   //                                     MONGOC_DEFAULT_RETRYWRITES)) {
-   //    return false;
-   // }
+   if (!mongoc_uri_get_option_as_bool (parts->client->uri,
+                                       MONGOC_URI_RETRYREADS,
+                                       MONGOC_DEFAULT_RETRYREADS)) {
+      return false;
+   }
 
    return true;
 }

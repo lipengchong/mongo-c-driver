@@ -53,7 +53,6 @@ main (int argc, char *argv[])
 #if 0
    bson_append_utf8 (&query, "hello", -1, "world", -1);
 #endif
-
    collection = mongoc_client_get_collection (client, "test", collection_name);
    cursor = mongoc_collection_find_with_opts (
       collection,
@@ -61,6 +60,7 @@ main (int argc, char *argv[])
       NULL,  /* additional options */
       NULL); /* read prefs, NULL for default */
 
+   mongoc_collection_find_indexes_with_opts (collection, NULL);
    while (mongoc_cursor_next (cursor, &doc)) {
       str = bson_as_canonical_extended_json (doc, NULL);
       fprintf (stdout, "%s\n", str);

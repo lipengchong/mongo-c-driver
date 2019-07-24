@@ -1621,7 +1621,6 @@ retry:
     * a new readable stream and retry. If server selection fails or the selected
     * server does not support retryable reads, fall through and allow the
     * original error to be reported. */
-   // TODO: transfer to read equivalent and add check for error type
    if (is_retryable &&
        _mongoc_read_error_get_type (ret, error, reply) ==
           MONGOC_READ_ERR_RETRY) {

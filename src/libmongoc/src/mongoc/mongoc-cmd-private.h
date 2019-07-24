@@ -36,6 +36,7 @@
 
 BSON_BEGIN_DECLS
 
+#define MONGOC_DEFAULT_RETRYREADS true
 /* retryWrites requires sessions, which require crypto */
 #ifdef MONGOC_ENABLE_CRYPTO
 #define MONGOC_DEFAULT_RETRYWRITES true
