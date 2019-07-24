@@ -928,12 +928,12 @@ _mongoc_cursor_run_command (mongoc_cursor_t *cursor,
    parts.read_prefs = cursor->read_prefs;
    parts.assembled.operation_id = cursor->operation_id;
    server_stream = _mongoc_cursor_fetch_stream (cursor);
-
+   
    if (!server_stream) {
       _mongoc_bson_init_if_set (reply);
       GOTO (done);
    }
-
+   
    if (opts) {
       if (!bson_iter_init (&iter, opts)) {
          _mongoc_bson_init_if_set (reply);
@@ -951,7 +951,7 @@ _mongoc_cursor_run_command (mongoc_cursor_t *cursor,
          GOTO (done);
       }
    }
-
+   
    if (parts.assembled.session) {
       /* initial query/aggregate/etc, and opts contains "sessionId" */
       BSON_ASSERT (!cursor->client_session);
@@ -1613,6 +1613,7 @@ _mongoc_cursor_response_refresh (
    mongoc_cursor_response_t *response,
    bool is_retryable)
 {
+   mongoc_server_stream_t *retry_server_stream = NULL;
    bool ret;
    ENTRY;
 
@@ -1621,24 +1622,38 @@ _mongoc_cursor_response_refresh (
 retry:
    /* server replies to find / aggregate with {cursor: {id: N, firstBatch: []}},
     * to getMore command with {cursor: {id: N, nextBatch: []}}. */
-   fprintf (stderr, "command = %s\n", bson_as_json (command, NULL));
    ret = _mongoc_cursor_run_command (cursor, command, opts, &response->reply);
-   fprintf (stderr, "ret == %d\n", ret);
    if (ret && _mongoc_cursor_start_reading_response (cursor, response)) {
+      bson_set_error (&cursor->error, 0, 0, "");
       return;
    }
-   fprintf (stderr, "find failed, error = %s\n", bson_as_json (&cursor->error_doc, NULL));
 
    if (is_retryable &&
        _mongoc_read_error_get_type (ret, &cursor->error, &response->reply) ==
           MONGOC_READ_ERR_RETRY) {
       is_retryable = false;
 
-      bson_destroy (&response->reply);
-      GOTO (retry);
+      if (retry_server_stream) {
+         mongoc_server_stream_cleanup (retry_server_stream);
+      }
+
+      retry_server_stream = mongoc_cluster_stream_for_reads (&cursor->client->cluster,
+                                                       cursor->read_prefs,
+                                                       cursor->client_session,
+                                                       &response->reply,
+                                                       &cursor->error);
+
+      if (retry_server_stream &&
+          retry_server_stream->sd->max_wire_version >=
+             WIRE_VERSION_RETRY_READS) {
+         cursor->server_id = retry_server_stream->sd->id;
+         bson_destroy (&response->reply);
+         GOTO (retry);
+      }
    }
 
    if (!cursor->error.domain) {
+      fprintf (stderr, "setting cursor error\n");
       bson_set_error (&cursor->error,
                       MONGOC_ERROR_PROTOCOL,
                       MONGOC_ERROR_PROTOCOL_INVALID_REPLY,
