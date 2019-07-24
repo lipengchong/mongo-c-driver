@@ -78,6 +78,7 @@ typedef struct _mongoc_cmd_parts_t {
    bool is_write_command;
    bool prohibit_lsid;
    mongoc_cmd_parts_allow_txn_number_t allow_txn_number;
+   bool is_retryable_read;
    bool is_retryable_write;
    bool has_temp_session;
    mongoc_client_t *client;
