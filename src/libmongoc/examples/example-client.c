@@ -67,8 +67,8 @@ main (int argc, char *argv[])
       bson_free (str);
    }
 
-   mongoc_collection_estimated_document_count (collection, NULL, NULL, &reply, &error);
-   fprintf (stderr, "count result: %s\n", bson_as_json (&reply, NULL));
+   // mongoc_collection_estimated_document_count (collection, NULL, NULL, &reply, &error);
+   // fprintf (stderr, "find result: %s\n", bson_as_json (&reply, NULL));
 
    if (mongoc_cursor_error (cursor, &error)) {
       fprintf (stderr, "Cursor Failure: %s\n", error.message);

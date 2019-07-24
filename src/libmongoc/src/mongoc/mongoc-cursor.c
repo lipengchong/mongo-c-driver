@@ -21,6 +21,7 @@
 #include "mongoc/mongoc-client-session-private.h"
 #include "mongoc/mongoc-counters-private.h"
 #include "mongoc/mongoc-error.h"
+#include "mongoc/mongoc-error-private.h"
 #include "mongoc/mongoc-log.h"
 #include "mongoc/mongoc-trace-private.h"
 #include "mongoc/mongoc-read-concern-private.h"
@@ -1605,21 +1606,38 @@ _mongoc_cursor_response_read (mongoc_cursor_t *cursor,
 
 /* sets cursor error if could not get the next batch. */
 void
-_mongoc_cursor_response_refresh (mongoc_cursor_t *cursor,
-                                 const bson_t *command,
-                                 const bson_t *opts,
-                                 mongoc_cursor_response_t *response)
+_mongoc_cursor_response_refresh (
+   mongoc_cursor_t *cursor,
+   const bson_t *command,
+   const bson_t *opts,
+   mongoc_cursor_response_t *response,
+   bool is_retryable)
 {
+   bool ret;
    ENTRY;
 
    bson_destroy (&response->reply);
 
+retry:
    /* server replies to find / aggregate with {cursor: {id: N, firstBatch: []}},
     * to getMore command with {cursor: {id: N, nextBatch: []}}. */
-   if (_mongoc_cursor_run_command (cursor, command, opts, &response->reply) &&
-       _mongoc_cursor_start_reading_response (cursor, response)) {
+   fprintf (stderr, "command = %s\n", bson_as_json (command, NULL));
+   ret = _mongoc_cursor_run_command (cursor, command, opts, &response->reply);
+   fprintf (stderr, "ret == %d\n", ret);
+   if (ret && _mongoc_cursor_start_reading_response (cursor, response)) {
       return;
    }
+   fprintf (stderr, "find failed, error = %s\n", bson_as_json (&cursor->error_doc, NULL));
+
+   if (is_retryable &&
+       _mongoc_read_error_get_type (ret, &cursor->error, &response->reply) ==
+          MONGOC_READ_ERR_RETRY) {
+      is_retryable = false;
+
+      bson_destroy (&response->reply);
+      GOTO (retry);
+   }
+
    if (!cursor->error.domain) {
       bson_set_error (&cursor->error,
                       MONGOC_ERROR_PROTOCOL,
