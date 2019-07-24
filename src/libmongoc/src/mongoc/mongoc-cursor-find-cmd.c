@@ -34,7 +34,7 @@ _prime (mongoc_cursor_t *cursor)
    /* construct { find: "<collection>", filter: {<filter>} } */
    _mongoc_cursor_prepare_find_command (cursor, &data->filter, &find_cmd);
    _mongoc_cursor_response_refresh (
-      cursor, &find_cmd, &cursor->opts, &data->response);
+      cursor, &find_cmd, &cursor->opts, &data->response, true);
    bson_destroy (&find_cmd);
    return IN_BATCH;
 }
@@ -64,7 +64,7 @@ _get_next_batch (mongoc_cursor_t *cursor)
    }
    _mongoc_cursor_prepare_getmore_command (cursor, &getmore_cmd);
    _mongoc_cursor_response_refresh (
-      cursor, &getmore_cmd, NULL /* opts */, &data->response);
+      cursor, &getmore_cmd, NULL /* opts */, &data->response, false);
    bson_destroy (&getmore_cmd);
    return IN_BATCH;
 }

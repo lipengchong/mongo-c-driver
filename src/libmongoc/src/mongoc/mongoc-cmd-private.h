@@ -36,6 +36,7 @@
 
 BSON_BEGIN_DECLS
 
+#define MONGOC_DEFAULT_RETRYREADS true
 /* retryWrites requires sessions, which require crypto */
 #ifdef MONGOC_ENABLE_CRYPTO
 #define MONGOC_DEFAULT_RETRYWRITES true
@@ -78,6 +79,7 @@ typedef struct _mongoc_cmd_parts_t {
    bool is_write_command;
    bool prohibit_lsid;
    mongoc_cmd_parts_allow_txn_number_t allow_txn_number;
+   bool is_retryable_read;
    bool is_retryable_write;
    bool has_temp_session;
    mongoc_client_t *client;

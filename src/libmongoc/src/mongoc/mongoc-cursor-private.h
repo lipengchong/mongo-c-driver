@@ -220,7 +220,8 @@ void
 _mongoc_cursor_response_refresh (mongoc_cursor_t *cursor,
                                  const bson_t *command,
                                  const bson_t *opts,
-                                 mongoc_cursor_response_t *response);
+                                 mongoc_cursor_response_t *response,
+                                 bool is_retryable);
 bool
 _mongoc_cursor_start_reading_response (mongoc_cursor_t *cursor,
                                        mongoc_cursor_response_t *response);

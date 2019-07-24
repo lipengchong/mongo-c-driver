@@ -1125,6 +1125,9 @@ set_uri_opts_from_bson (mongoc_uri_t *uri, const bson_t *opts)
       } else if (!strcmp (bson_iter_key (&iter), "retryWrites")) {
          mongoc_uri_set_option_as_bool (
             uri, "retryWrites", bson_iter_bool (&iter));
+      } else if (!strcmp (bson_iter_key (&iter), "retryReads")) {
+         mongoc_uri_set_option_as_bool (
+            uri, "retryReads", bson_iter_bool (&iter));
       } else {
          MONGOC_ERROR ("Unsupported clientOptions field \"%s\" in %s",
                        bson_iter_key (&iter),
