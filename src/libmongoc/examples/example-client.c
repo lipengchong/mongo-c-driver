@@ -20,6 +20,7 @@ main (int argc, char *argv[])
    char *str;
    const char *uri_string = "mongodb://127.0.0.1/?appname=client-example";
    mongoc_uri_t *uri;
+   bson_t reply;
 
    mongoc_init ();
    if (argc > 1) {
@@ -65,6 +66,9 @@ main (int argc, char *argv[])
       fprintf (stdout, "%s\n", str);
       bson_free (str);
    }
+
+   mongoc_collection_estimated_document_count (collection, NULL, NULL, &reply, &error);
+   fprintf (stderr, "count result: %s\n", bson_as_json (&reply, NULL));
 
    if (mongoc_cursor_error (cursor, &error)) {
       fprintf (stderr, "Cursor Failure: %s\n", error.message);

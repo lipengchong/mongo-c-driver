@@ -41,6 +41,7 @@
 #include "mongoc/mongoc-database-private.h"
 #include "mongoc/mongoc-gridfs-private.h"
 #include "mongoc/mongoc-error.h"
+#include "mongoc/mongoc-error-private.h"
 #include "mongoc/mongoc-log.h"
 #include "mongoc/mongoc-queue-private.h"
 #include "mongoc/mongoc-socket.h"
@@ -1621,7 +1622,9 @@ retry:
     * server does not support retryable reads, fall through and allow the
     * original error to be reported. */
    // TODO: transfer to read equivalent and add check for error type
-   if (is_retryable) {
+   if (is_retryable &&
+       _mongoc_read_error_get_type (ret, error, reply) ==
+          MONGOC_READ_ERR_RETRY) {
       bson_error_t ignored_error;
 
       /* each read command may be retried at most once */
@@ -1631,8 +1634,12 @@ retry:
          mongoc_server_stream_cleanup (retry_server_stream);
       }
 
-      retry_server_stream = mongoc_cluster_stream_for_reads (
-         &client->cluster, read_prefs, parts->assembled.session, NULL, &ignored_error);
+      retry_server_stream =
+         mongoc_cluster_stream_for_reads (&client->cluster,
+                                          read_prefs,
+                                          parts->assembled.session,
+                                          NULL,
+                                          &ignored_error);
 
       if (retry_server_stream &&
           retry_server_stream->sd->max_wire_version >=
