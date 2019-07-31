@@ -147,6 +147,8 @@ test_read_prefs_install (TestSuite *suite);
 extern void
 test_retryable_writes_install (TestSuite *suite);
 extern void
+test_retryable_reads_install (TestSuite *suite);
+extern void
 test_rpc_install (TestSuite *suite);
 extern void
 test_samples_install (TestSuite *suite);
@@ -2321,6 +2323,7 @@ main (int argc, char *argv[])
    test_read_write_concern_install (&suite);
    test_read_prefs_install (&suite);
    test_retryable_writes_install (&suite);
+   test_retryable_reads_install (&suite);
    test_rpc_install (&suite);
    test_socket_install (&suite);
    test_opts_install (&suite);
