@@ -205,8 +205,15 @@ process_sdam_test_ismaster_responses (bson_t *phase,
       bson_iter_bson (&ismaster_field_iter, &response);
 
       /* send ismaster through the topology description's handler */
+      capture_logs (true);
       mongoc_topology_description_handle_ismaster (
          td, sd->id, &response, 1, NULL);
+      if (td->servers->items_len == 0) {
+         ASSERT_CAPTURED_LOG ("topology",
+                              MONGOC_LOG_LEVEL_WARNING,
+                              "Last server removed from topology");
+      }
+      capture_logs (false);
    }
 }
 
@@ -620,9 +627,8 @@ get_bson_from_json_file (char *filename)
    return data;
 }
 
-
-static int
-check_scenario_version (const bson_t *scenario)
+static bool
+check_version_info (const bson_t *scenario)
 {
    const char *s;
    char *padded;
@@ -661,8 +667,70 @@ check_scenario_version (const bson_t *scenario)
       }
    }
 
-   /* server version is ok, don't skip the test */
+   if (bson_has_field (scenario, "topology")) {
+      bson_iter_t iter;
+      bson_t topology;
+      char *current_topology;
+
+      BSON_ASSERT (bson_iter_init_find (&iter, scenario, "topology"));
+      BSON_ASSERT (BSON_ITER_HOLDS_ARRAY (&iter));
+
+      bson_iter_bson (&iter, &topology);
+
+      /* Determine cluster type */
+      if (test_framework_is_mongos ()) {
+         current_topology = "sharded";
+      } else if (test_framework_is_replset ()) {
+         current_topology = "replicaset";
+      } else {
+         current_topology = "single";
+      }
+
+      bson_iter_init (&iter, &topology);
+      while (bson_iter_next (&iter)) {
+         const char *test_topology;
+
+         BSON_ASSERT (BSON_ITER_HOLDS_UTF8 (&iter));
+         test_topology = bson_iter_utf8 (&iter, NULL);
+
+         if (strcmp (test_topology, current_topology) == 0) {
+            return true;
+         }
+      }
+
+      /* If we didn't match any of the listed topologies, skip */
+      printf ("     SKIP, test topologies do not match current %s setup\n",
+              current_topology);
+
+      return false;
+   }
+
    return true;
+}
+
+static bool
+check_scenario_version (const bson_t *scenario)
+{
+   /* version info can be nested inside "runOn" array */
+   if (bson_has_field (scenario, "runOn")) {
+      bson_iter_t iter;
+      bson_t run_on;
+      bson_t version_info;
+
+      bson_lookup_doc (scenario, "runOn", &run_on);
+      BSON_ASSERT (bson_iter_init (&iter, &run_on));
+
+      while (bson_iter_next (&iter)) {
+         bson_iter_bson (&iter, &version_info);
+         if (!check_version_info (&version_info)) {
+            return false;
+         }
+      }
+
+      return true;
+   }
+
+   return check_version_info (scenario);
 }
 
 
