@@ -66,7 +66,7 @@ _mongoc_read_error_get_type (bool cmd_ret,
    bson_error_t error;
 
    /* check for a client error. */
-   if (!cmd_ret && cmd_err->domain == MONGOC_ERROR_STREAM) {
+   if (!cmd_ret && cmd_err && cmd_err->domain == MONGOC_ERROR_STREAM) {
       /* Retryable reads spec: "considered retryable if [...] any network
        * exception (e.g. socket timeout or error) */
       return MONGOC_READ_ERR_RETRY;

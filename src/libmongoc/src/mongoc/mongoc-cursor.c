@@ -1653,7 +1653,6 @@ retry:
    }
 
    if (!cursor->error.domain) {
-      fprintf (stderr, "setting cursor error\n");
       bson_set_error (&cursor->error,
                       MONGOC_ERROR_PROTOCOL,
                       MONGOC_ERROR_PROTOCOL_INVALID_REPLY,
