@@ -927,6 +927,7 @@ find_and_modify (mongoc_collection_t *collection,
    bson_lookup_doc (operation, "arguments.filter", &filter);
 
    opts = create_find_and_modify_opts (name, &args, session, wc);
+
    r = mongoc_collection_find_and_modify_with_opts (
       collection, &filter, opts, reply, &error);
 
@@ -1318,7 +1319,40 @@ find (mongoc_collection_t *collection,
    return true;
 }
 
+static bool
+find_one (mongoc_collection_t *collection,
+      const bson_t *test,
+      const bson_t *operation,
+      mongoc_client_session_t *session,
+      const mongoc_read_prefs_t *read_prefs,
+      bson_t *reply)
+{
+   bson_t filter;
+   bson_t opts = BSON_INITIALIZER;
+   bson_t *doc;
+   mongoc_cursor_t *cursor;
+   bson_value_t value;
+   bson_error_t error;
 
+   bson_lookup_doc (operation, "arguments.filter", &filter);
+
+   cursor = mongoc_collection_find_with_opts (
+      collection, &filter, &opts, read_prefs);
+   
+   if (mongoc_cursor_next (cursor, &doc)) {
+      value_init_from_doc (&value, doc);
+      check_result (test, operation, true, &value, &error);
+   } else if (mongoc_cursor_error_document (cursor, &error, &doc)) {
+      value_init_from_doc (&value, doc);
+      check_result (test, operation, false, &value, &error);
+   }
+
+   mongoc_cursor_destroy (cursor);
+   bson_destroy (&filter);
+   bson_destroy (&opts);
+
+   return true;
+}
 static bool
 _is_aggregate_out (const bson_t *pipeline)
 {
@@ -1631,6 +1665,8 @@ json_test_operation (json_test_ctx_t *ctx,
          res = distinct (c, test, operation, session, read_prefs, reply);
       } else if (!strcmp (op_name, "find")) {
          res = find (c, test, operation, session, read_prefs, reply);
+      } else if (!strcmp (op_name, "findOne")) {
+         res = find_one (c, test, operation, session, read_prefs, reply);
       } else if (!strcmp (op_name, "aggregate")) {
          res = aggregate (c, test, operation, session, read_prefs, reply);
       } else {
