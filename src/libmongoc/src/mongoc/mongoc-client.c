@@ -1608,6 +1608,11 @@ _mongoc_client_retryable_read_command_with_stream (
    mongoc_server_stream_t *retry_server_stream = NULL;
    bool is_retryable = true;
    bool ret;
+   bson_t reply_local;
+
+   if (reply == NULL) {
+      reply = &reply_local;
+   }
 
    ENTRY;
 
