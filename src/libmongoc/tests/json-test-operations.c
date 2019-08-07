@@ -1319,13 +1319,14 @@ find (mongoc_collection_t *collection,
    return true;
 }
 
+
 static bool
 find_one (mongoc_collection_t *collection,
-      const bson_t *test,
-      const bson_t *operation,
-      mongoc_client_session_t *session,
-      const mongoc_read_prefs_t *read_prefs,
-      bson_t *reply)
+          const bson_t *test,
+          const bson_t *operation,
+          mongoc_client_session_t *session,
+          const mongoc_read_prefs_t *read_prefs,
+          bson_t *reply)
 {
    bson_t filter;
    bson_t opts = BSON_INITIALIZER;
@@ -1336,9 +1337,9 @@ find_one (mongoc_collection_t *collection,
 
    bson_lookup_doc (operation, "arguments.filter", &filter);
 
-   cursor = mongoc_collection_find_with_opts (
-      collection, &filter, &opts, read_prefs);
-   
+   cursor =
+      mongoc_collection_find_with_opts (collection, &filter, &opts, read_prefs);
+
    if (mongoc_cursor_next (cursor, &doc)) {
       value_init_from_doc (&value, doc);
       check_result (test, operation, true, &value, &error);
@@ -1353,6 +1354,8 @@ find_one (mongoc_collection_t *collection,
 
    return true;
 }
+
+
 static bool
 _is_aggregate_out (const bson_t *pipeline)
 {
@@ -1590,6 +1593,32 @@ abort_transaction (mongoc_client_session_t *session,
 }
 
 
+static bool
+list_database_names (mongoc_client_t *client,
+                     const bson_t *test,
+                     const bson_t *operation,
+                     mongoc_client_session_t *session,
+                     const mongoc_read_prefs_t *read_prefs,
+                     bson_t *reply)
+{
+   mongoc_cursor_t *cursor;
+   bson_error_t error;
+   bson_t cmd = BSON_INITIALIZER;
+
+   BSON_ASSERT (client);
+   BSON_APPEND_INT32 (&cmd, "listDatabases", 1);
+   BSON_APPEND_BOOL (&cmd, "nameOnly", true);
+
+   /* ignore client read prefs */
+   cursor = _mongoc_cursor_array_new (client, "admin", &cmd, NULL, "databases");
+   bson_destroy (&cmd);
+
+   check_cursor (cursor, test, operation);
+   mongoc_cursor_destroy (cursor);
+   return true;
+}
+
+
 bool
 json_test_operation (json_test_ctx_t *ctx,
                      const bson_t *test,
@@ -1699,6 +1728,12 @@ json_test_operation (json_test_ctx_t *ctx,
          res = (0 != mongoc_client_session_get_server_id (session));
       } else {
          test_error ("unrecognized session operation name %s", op_name);
+      }
+   } else if (!strcmp (obj_name, "client")) {
+      if (!strcmp (op_name, "listDatabaseNames")) {
+         res = list_database_names (c->client, test, operation, session, read_prefs, reply);
+      } else {
+         test_error ("unrecognized client operation name %s", op_name);
       }
    } else {
       test_error ("unrecognized object name %s", obj_name);

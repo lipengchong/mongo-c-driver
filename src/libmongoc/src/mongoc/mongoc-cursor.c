@@ -918,6 +918,7 @@ _mongoc_cursor_run_command (mongoc_cursor_t *cursor,
    char db[MONGOC_NAMESPACE_MAX];
    mongoc_session_opt_t *session_opts;
    bool ret = false;
+   bool is_retryable = true;
 
    ENTRY;
 
@@ -1023,8 +1024,38 @@ _mongoc_cursor_run_command (mongoc_cursor_t *cursor,
       GOTO (done);
    }
 
+retry:
    ret = mongoc_cluster_run_command_monitored (
-      cluster, &parts.assembled, reply, &cursor->error);
+      &cursor->client->cluster, &parts.assembled, reply, &cursor->error);
+   
+   if (ret) {
+      bson_set_error (&cursor->error, 0, 0, "");
+   }
+
+   if (is_retryable &&
+       _mongoc_read_error_get_type (ret, &cursor->error, reply) ==
+          MONGOC_READ_ERR_RETRY) {
+      is_retryable = false;
+
+      if (server_stream) {
+         mongoc_server_stream_cleanup (server_stream);
+      }
+
+      server_stream = mongoc_cluster_stream_for_reads (&cursor->client->cluster,
+                                                       cursor->read_prefs,
+                                                       cursor->client_session,
+                                                       reply,
+                                                       &cursor->error);
+
+      if (server_stream &&
+          server_stream->sd->max_wire_version >=
+             WIRE_VERSION_RETRY_READS) {
+         cursor->server_id = server_stream->sd->id;
+         parts.assembled.server_stream = server_stream;
+         bson_destroy (reply);
+         GOTO (retry);
+      }
+   }
 
    if (cursor->error.domain) {
       bson_destroy (&cursor->error_doc);
