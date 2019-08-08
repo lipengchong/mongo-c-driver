@@ -32,6 +32,7 @@ typedef struct {
    mongoc_client_t *client;
    mongoc_database_t *db;
    mongoc_collection_t *collection;
+   mongoc_gridfs_bucket_t *bucket;
 } json_test_ctx_t;
 
 mongoc_client_session_t *

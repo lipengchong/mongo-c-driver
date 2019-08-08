@@ -1595,12 +1595,12 @@ abort_transaction (mongoc_client_session_t *session,
 
 static bool
 list_databases (mongoc_client_t *client,
-                     const bson_t *test,
-                     const bson_t *operation,
-                     mongoc_client_session_t *session,
-                     const mongoc_read_prefs_t *read_prefs,
-                     bson_t *reply,
-                     bool name_only)
+                const bson_t *test,
+                const bson_t *operation,
+                mongoc_client_session_t *session,
+                const mongoc_read_prefs_t *read_prefs,
+                bson_t *reply,
+                bool name_only)
 {
    mongoc_cursor_t *cursor;
    bson_error_t error;
@@ -1689,8 +1689,8 @@ list_collections (mongoc_client_t *client,
 
    /* Enumerate Collections Spec: "run listCollections on the primary node in
     * replicaset mode" */
-   cursor = _mongoc_cursor_cmd_new (
-      client, "admin", &cmd, NULL, NULL, NULL, NULL);
+   cursor =
+      _mongoc_cursor_cmd_new (client, "admin", &cmd, NULL, NULL, NULL, NULL);
    if (cursor->error.domain == 0) {
       _mongoc_cursor_prime (cursor);
    }
@@ -1740,13 +1740,13 @@ change_stream_watch (mongoc_change_stream_t *cs,
 
 static bool
 gridfs_download (mongoc_database_t *db,
-              const bson_t *test,
-              const bson_t *operation,
-              mongoc_client_session_t *session,
-              const mongoc_read_prefs_t *read_prefs,
-              bson_t *reply) 
+                 const bson_t *test,
+                 const bson_t *operation,
+                 mongoc_client_session_t *session,
+                 const mongoc_read_prefs_t *read_prefs,
+                 bson_t *reply)
 {
-   mongoc_gridfs_bucket_t *bucket; 
+   mongoc_gridfs_bucket_t *bucket;
    bson_value_t value;
    bson_error_t error;
    mongoc_stream_t *stream;
@@ -1756,12 +1756,11 @@ gridfs_download (mongoc_database_t *db,
 
    bucket = mongoc_gridfs_bucket_new (db, NULL, read_prefs, &error);
    stream = mongoc_gridfs_bucket_open_download_stream (bucket, &value, &error);
-   fprintf (stderr, "error = %s\n", error.message);
    ASSERT (stream);
 
-   while (mongoc_stream_read (stream, buf, 256, 1, 0) > 0) {
-      fprintf (stderr, "buff == %s\n", buf);
-   }
+   mongoc_stream_read (stream, buf, 1, 1, 0);
+
+   mongoc_stream_destroy (stream);
 }
 
 
@@ -1769,8 +1768,9 @@ gridfs_download (mongoc_database_t *db,
  * and the C Driver hasn't implemented the Advanced API yet. This is a
  * placeholder to be used when the download_by_name is implemented. */
 static bool
-gridfs_download_by_name () {
-   return true;
+gridfs_download_by_name ()
+{
+   test_error ("The download_by_name functionality is part of the Advanced API for GridFS and the C Driver hasn't implemented the Advanced API yet.");
 }
 
 
@@ -1876,12 +1876,13 @@ json_test_operation (json_test_ctx_t *ctx,
          res = db_aggregate (db, test, operation, session, read_prefs, reply);
       } else if (!strcmp (op_name, "runCommand")) {
          res = command (db, test, operation, session, read_prefs, reply);
-      } else if (!strcmp (op_name, "listCollections") || !strcmp (op_name, "listCollectionObjects")) {
-         res =
-            list_collections (c->client, test, operation, session, read_prefs, reply, false);
+      } else if (!strcmp (op_name, "listCollections") ||
+                 !strcmp (op_name, "listCollectionObjects")) {
+         res = list_collections (
+            c->client, test, operation, session, read_prefs, reply, false);
       } else if (!strcmp (op_name, "listCollectionNames")) {
-         res =
-            list_collections (c->client, test, operation, session, read_prefs, reply, true);
+         res = list_collections (
+            c->client, test, operation, session, read_prefs, reply, true);
       } else if (!strcmp (op_name, "watch")) {
          bson_t pipeline = BSON_INITIALIZER;
          res = change_stream_watch (mongoc_database_watch (db, &pipeline, NULL),
@@ -1914,7 +1915,8 @@ json_test_operation (json_test_ctx_t *ctx,
          test_error ("unrecognized session operation name %s", op_name);
       }
    } else if (!strcmp (obj_name, "client")) {
-      if (!strcmp (op_name, "listDatabases") || !strcmp (op_name, "listDatabaseObjects")) {
+      if (!strcmp (op_name, "listDatabases") ||
+          !strcmp (op_name, "listDatabaseObjects")) {
          res = list_databases (
             c->client, test, operation, session, read_prefs, reply, false);
       } else if (!strcmp (op_name, "listDatabaseNames")) {
@@ -1934,7 +1936,8 @@ json_test_operation (json_test_ctx_t *ctx,
       }
    } else if (!strcmp (obj_name, "gridfsbucket")) {
       if (!strcmp (op_name, "download")) {
-         res = gridfs_download (db, test, operation, session, read_prefs, reply);
+         res =
+            gridfs_download (db, test, operation, session, read_prefs, reply);
       } else if (!strcmp (op_name, "download_by_name")) {
          res = gridfs_download_by_name ();
       } else {
