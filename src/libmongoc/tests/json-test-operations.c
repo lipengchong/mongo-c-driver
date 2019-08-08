@@ -1716,7 +1716,6 @@ change_stream_watch (mongoc_change_stream_t *cs,
    const char *keyptr = NULL;
    const bson_t *next_doc;
    bson_t doc = BSON_INITIALIZER;
-   bson_t pipeline = BSON_INITIALIZER;
    bson_error_t error;
    bson_value_t value;
 
@@ -1735,6 +1734,42 @@ change_stream_watch (mongoc_change_stream_t *cs,
    bson_destroy (&doc);
    mongoc_change_stream_destroy (cs);
 
+   return true;
+}
+
+
+static bool
+gridfs_download (mongoc_database_t *db,
+              const bson_t *test,
+              const bson_t *operation,
+              mongoc_client_session_t *session,
+              const mongoc_read_prefs_t *read_prefs,
+              bson_t *reply) 
+{
+   mongoc_gridfs_bucket_t *bucket; 
+   bson_value_t value;
+   bson_error_t error;
+   mongoc_stream_t *stream;
+   char buf[512];
+
+   bson_lookup_value (operation, "arguments.id", &value);
+
+   bucket = mongoc_gridfs_bucket_new (db, NULL, read_prefs, &error);
+   stream = mongoc_gridfs_bucket_open_download_stream (bucket, &value, &error);
+   fprintf (stderr, "error = %s\n", error.message);
+   ASSERT (stream);
+
+   while (mongoc_stream_read (stream, buf, 256, 1, 0) > 0) {
+      fprintf (stderr, "buff == %s\n", buf);
+   }
+}
+
+
+/* The download_by_name functionality is part of the Advanced API for GridFS
+ * and the C Driver hasn't implemented the Advanced API yet. This is a
+ * placeholder to be used when the download_by_name is implemented. */
+static bool
+gridfs_download_by_name () {
    return true;
 }
 
@@ -1896,6 +1931,14 @@ json_test_operation (json_test_ctx_t *ctx,
             reply);
       } else {
          test_error ("unrecognized client operation name %s", op_name);
+      }
+   } else if (!strcmp (obj_name, "gridfsbucket")) {
+      if (!strcmp (op_name, "download")) {
+         res = gridfs_download (db, test, operation, session, read_prefs, reply);
+      } else if (!strcmp (op_name, "download_by_name")) {
+         res = gridfs_download_by_name ();
+      } else {
+         test_error ("unrecognized gridfs operation name %s", op_name);
       }
    } else {
       test_error ("unrecognized object name %s", obj_name);
