@@ -1594,12 +1594,13 @@ abort_transaction (mongoc_client_session_t *session,
 
 
 static bool
-list_database_names (mongoc_client_t *client,
+list_databases (mongoc_client_t *client,
                      const bson_t *test,
                      const bson_t *operation,
                      mongoc_client_session_t *session,
                      const mongoc_read_prefs_t *read_prefs,
-                     bson_t *reply)
+                     bson_t *reply,
+                     bool name_only)
 {
    mongoc_cursor_t *cursor;
    bson_error_t error;
@@ -1607,7 +1608,10 @@ list_database_names (mongoc_client_t *client,
 
    BSON_ASSERT (client);
    BSON_APPEND_INT32 (&cmd, "listDatabases", 1);
-   BSON_APPEND_BOOL (&cmd, "nameOnly", true);
+
+   if (name_only) {
+      BSON_APPEND_BOOL (&cmd, "nameOnly", true);
+   }
 
    /* ignore client read prefs */
    cursor = _mongoc_cursor_array_new (client, "admin", &cmd, NULL, "databases");
@@ -1621,12 +1625,12 @@ list_database_names (mongoc_client_t *client,
 
 static bool
 list_indexes (mongoc_collection_t *collection,
-                     const bson_t *test,
-                     const bson_t *operation,
-                     mongoc_client_session_t *session,
-                     const mongoc_read_prefs_t *read_prefs,
-                     bson_t *reply,
-                     bool name_only) 
+              const bson_t *test,
+              const bson_t *operation,
+              mongoc_client_session_t *session,
+              const mongoc_read_prefs_t *read_prefs,
+              bson_t *reply,
+              bool name_only)
 {
    mongoc_cursor_t *cursor;
    bson_t cmd = BSON_INITIALIZER;
@@ -1644,7 +1648,7 @@ list_indexes (mongoc_collection_t *collection,
    if (name_only) {
       BSON_APPEND_BOOL (&cmd, "nameOnly", true);
    }
-   
+
    BSON_APPEND_DOCUMENT_BEGIN (&cmd, "cursor", &child);
    bson_append_document_end (&cmd, &child);
 
@@ -1656,7 +1660,7 @@ list_indexes (mongoc_collection_t *collection,
    if (!mongoc_cursor_error (cursor, &error)) {
       _mongoc_cursor_prime (cursor);
    }
-   
+
    bson_destroy (&cmd);
 
    check_cursor (cursor, test, operation);
@@ -1666,20 +1670,71 @@ list_indexes (mongoc_collection_t *collection,
 
 
 static bool
-list_collections (mongoc_database_t *db,
-              const bson_t *test,
-              const bson_t *operation,
-              mongoc_client_session_t *session,
-              const mongoc_read_prefs_t *read_prefs,
-              bson_t *reply) 
+list_collections (mongoc_client_t *client,
+                  const bson_t *test,
+                  const bson_t *operation,
+                  mongoc_client_session_t *session,
+                  const mongoc_read_prefs_t *read_prefs,
+                  bson_t *reply,
+                  bool name_only)
 {
    mongoc_cursor_t *cursor;
+   bson_t cmd = BSON_INITIALIZER;
 
-   cursor = mongoc_database_find_collections_with_opts (db, NULL);
+   BSON_APPEND_INT32 (&cmd, "listCollections", 1);
+
+   if (name_only) {
+      BSON_APPEND_BOOL (&cmd, "nameOnly", true);
+   }
+
+   /* Enumerate Collections Spec: "run listCollections on the primary node in
+    * replicaset mode" */
+   cursor = _mongoc_cursor_cmd_new (
+      client, "admin", &cmd, NULL, NULL, NULL, NULL);
+   if (cursor->error.domain == 0) {
+      _mongoc_cursor_prime (cursor);
+   }
+   bson_destroy (&cmd);
 
    check_cursor (cursor, test, operation);
    mongoc_cursor_destroy (cursor);
-   
+
+   return true;
+}
+
+
+static bool
+change_stream_watch (mongoc_change_stream_t *cs,
+                     const bson_t *test,
+                     const bson_t *operation,
+                     mongoc_client_session_t *session,
+                     const mongoc_read_prefs_t *read_prefs,
+                     bson_t *reply)
+{
+   int i;
+   char key[12];
+   const char *keyptr = NULL;
+   const bson_t *next_doc;
+   bson_t doc = BSON_INITIALIZER;
+   bson_t pipeline = BSON_INITIALIZER;
+   bson_error_t error;
+   bson_value_t value;
+
+
+   i = 0;
+   while (mongoc_change_stream_next (cs, &next_doc)) {
+      bson_uint32_to_string (i++, &keyptr, key, sizeof key);
+      BSON_APPEND_DOCUMENT (&doc, keyptr, next_doc);
+   }
+
+   value_init_from_doc (&value, &doc);
+   value.value_type = BSON_TYPE_ARRAY;
+   check_result (test, operation, true, &value, &error);
+
+   bson_value_destroy (&value);
+   bson_destroy (&doc);
+   mongoc_change_stream_destroy (cs);
+
    return true;
 }
 
@@ -1764,9 +1819,20 @@ json_test_operation (json_test_ctx_t *ctx,
       } else if (!strcmp (op_name, "aggregate")) {
          res = aggregate (c, test, operation, session, read_prefs, reply);
       } else if (!strcmp (op_name, "listIndexNames")) {
-         res = list_indexes (c, test, operation, session, read_prefs, reply, true);
+         res =
+            list_indexes (c, test, operation, session, read_prefs, reply, true);
       } else if (!strcmp (op_name, "listIndexes")) {
-         res = list_indexes (c, test, operation, session, read_prefs, reply, false);
+         res = list_indexes (
+            c, test, operation, session, read_prefs, reply, false);
+      } else if (!strcmp (op_name, "watch")) {
+         bson_t pipeline = BSON_INITIALIZER;
+         res =
+            change_stream_watch (mongoc_collection_watch (c, &pipeline, NULL),
+                                 test,
+                                 operation,
+                                 session,
+                                 read_prefs,
+                                 reply);
       } else {
          test_error ("unrecognized collection operation name %s", op_name);
       }
@@ -1775,8 +1841,20 @@ json_test_operation (json_test_ctx_t *ctx,
          res = db_aggregate (db, test, operation, session, read_prefs, reply);
       } else if (!strcmp (op_name, "runCommand")) {
          res = command (db, test, operation, session, read_prefs, reply);
-      } else if (!strcmp (op_name, "listCollections")) {
-         res = list_collections (db, test, operation, session, read_prefs, reply);
+      } else if (!strcmp (op_name, "listCollections") || !strcmp (op_name, "listCollectionObjects")) {
+         res =
+            list_collections (c->client, test, operation, session, read_prefs, reply, false);
+      } else if (!strcmp (op_name, "listCollectionNames")) {
+         res =
+            list_collections (c->client, test, operation, session, read_prefs, reply, true);
+      } else if (!strcmp (op_name, "watch")) {
+         bson_t pipeline = BSON_INITIALIZER;
+         res = change_stream_watch (mongoc_database_watch (db, &pipeline, NULL),
+                                    test,
+                                    operation,
+                                    session,
+                                    read_prefs,
+                                    reply);
       } else {
          test_error ("unrecognized database operation name %s", op_name);
       }
@@ -1801,8 +1879,21 @@ json_test_operation (json_test_ctx_t *ctx,
          test_error ("unrecognized session operation name %s", op_name);
       }
    } else if (!strcmp (obj_name, "client")) {
-      if (!strcmp (op_name, "listDatabaseNames")) {
-         res = list_database_names (c->client, test, operation, session, read_prefs, reply);
+      if (!strcmp (op_name, "listDatabases") || !strcmp (op_name, "listDatabaseObjects")) {
+         res = list_databases (
+            c->client, test, operation, session, read_prefs, reply, false);
+      } else if (!strcmp (op_name, "listDatabaseNames")) {
+         res = list_databases (
+            c->client, test, operation, session, read_prefs, reply, true);
+      } else if (!strcmp (op_name, "watch")) {
+         bson_t pipeline = BSON_INITIALIZER;
+         res = change_stream_watch (
+            mongoc_client_watch (c->client, &pipeline, NULL),
+            test,
+            operation,
+            session,
+            read_prefs,
+            reply);
       } else {
          test_error ("unrecognized client operation name %s", op_name);
       }
