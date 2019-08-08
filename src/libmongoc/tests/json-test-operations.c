@@ -1619,6 +1619,71 @@ list_database_names (mongoc_client_t *client,
 }
 
 
+static bool
+list_indexes (mongoc_collection_t *collection,
+                     const bson_t *test,
+                     const bson_t *operation,
+                     mongoc_client_session_t *session,
+                     const mongoc_read_prefs_t *read_prefs,
+                     bson_t *reply,
+                     bool name_only) 
+{
+   mongoc_cursor_t *cursor;
+   bson_t cmd = BSON_INITIALIZER;
+   bson_t child;
+   bson_error_t error;
+
+   BSON_ASSERT (collection);
+
+   bson_append_utf8 (&cmd,
+                     "listIndexes",
+                     -1,
+                     collection->collection,
+                     collection->collectionlen);
+
+   if (name_only) {
+      BSON_APPEND_BOOL (&cmd, "nameOnly", true);
+   }
+   
+   BSON_APPEND_DOCUMENT_BEGIN (&cmd, "cursor", &child);
+   bson_append_document_end (&cmd, &child);
+
+   /* No read preference. Index Enumeration Spec: "run listIndexes on the
+    * primary node in replicaSet mode". */
+   cursor = _mongoc_cursor_cmd_new (
+      collection->client, collection->ns, &cmd, NULL, NULL, NULL, NULL);
+
+   if (!mongoc_cursor_error (cursor, &error)) {
+      _mongoc_cursor_prime (cursor);
+   }
+   
+   bson_destroy (&cmd);
+
+   check_cursor (cursor, test, operation);
+   mongoc_cursor_destroy (cursor);
+   return true;
+}
+
+
+static bool
+list_collections (mongoc_database_t *db,
+              const bson_t *test,
+              const bson_t *operation,
+              mongoc_client_session_t *session,
+              const mongoc_read_prefs_t *read_prefs,
+              bson_t *reply) 
+{
+   mongoc_cursor_t *cursor;
+
+   cursor = mongoc_database_find_collections_with_opts (db, NULL);
+
+   check_cursor (cursor, test, operation);
+   mongoc_cursor_destroy (cursor);
+   
+   return true;
+}
+
+
 bool
 json_test_operation (json_test_ctx_t *ctx,
                      const bson_t *test,
@@ -1698,6 +1763,10 @@ json_test_operation (json_test_ctx_t *ctx,
          res = find_one (c, test, operation, session, read_prefs, reply);
       } else if (!strcmp (op_name, "aggregate")) {
          res = aggregate (c, test, operation, session, read_prefs, reply);
+      } else if (!strcmp (op_name, "listIndexNames")) {
+         res = list_indexes (c, test, operation, session, read_prefs, reply, true);
+      } else if (!strcmp (op_name, "listIndexes")) {
+         res = list_indexes (c, test, operation, session, read_prefs, reply, false);
       } else {
          test_error ("unrecognized collection operation name %s", op_name);
       }
@@ -1706,6 +1775,8 @@ json_test_operation (json_test_ctx_t *ctx,
          res = db_aggregate (db, test, operation, session, read_prefs, reply);
       } else if (!strcmp (op_name, "runCommand")) {
          res = command (db, test, operation, session, read_prefs, reply);
+      } else if (!strcmp (op_name, "listCollections")) {
+         res = list_collections (db, test, operation, session, read_prefs, reply);
       } else {
          test_error ("unrecognized database operation name %s", op_name);
       }
