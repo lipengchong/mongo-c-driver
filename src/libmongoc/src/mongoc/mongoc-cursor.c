@@ -908,7 +908,6 @@ _mongoc_cursor_run_command (mongoc_cursor_t *cursor,
                             const bson_t *opts,
                             bson_t *reply)
 {
-   mongoc_cluster_t *cluster;
    mongoc_server_stream_t *server_stream;
    bson_iter_t iter;
    mongoc_cmd_parts_t parts;
@@ -922,7 +921,6 @@ _mongoc_cursor_run_command (mongoc_cursor_t *cursor,
 
    ENTRY;
 
-   cluster = &cursor->client->cluster;
    mongoc_cmd_parts_init (
       &parts, cursor->client, db, MONGOC_QUERY_NONE, command);
    parts.is_read_command = true;
