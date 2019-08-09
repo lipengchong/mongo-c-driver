@@ -1027,7 +1027,7 @@ retry:
       &cursor->client->cluster, &parts.assembled, reply, &cursor->error);
    
    if (ret) {
-      bson_set_error (&cursor->error, 0, 0, "");
+      memset (&cursor->error, 0, sizeof (bson_error_t));
    }
 
    if (is_retryable &&
@@ -1653,7 +1653,7 @@ retry:
     * to getMore command with {cursor: {id: N, nextBatch: []}}. */
    ret = _mongoc_cursor_run_command (cursor, command, opts, &response->reply);
    if (ret && _mongoc_cursor_start_reading_response (cursor, response)) {
-      bson_set_error (&cursor->error, 0, 0, "");
+      memset (&cursor->error, 0, sizeof (bson_error_t));
       return;
    }
 
