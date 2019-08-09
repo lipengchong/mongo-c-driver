@@ -921,6 +921,20 @@ _mongoc_cursor_run_command (mongoc_cursor_t *cursor,
 
    ENTRY;
 
+   if (!strcmp (cmd_name, "getMore")) {
+      is_retryable = false;
+   }
+   if (!strcmp (cmd_name, "aggregate")) {
+      bson_iter_t pipeline_iter;
+      if (bson_iter_init_find (&pipeline_iter, command, "pipeline")
+          && BSON_ITER_HOLDS_ARRAY (&pipeline_iter)
+          && bson_iter_recurse (&pipeline_iter, &pipeline_iter)) {
+         if (_has_write_key (&pipeline_iter)) {
+            is_retryable = false;
+         }
+      }
+   }
+
    mongoc_cmd_parts_init (
       &parts, cursor->client, db, MONGOC_QUERY_NONE, command);
    parts.is_read_command = true;
