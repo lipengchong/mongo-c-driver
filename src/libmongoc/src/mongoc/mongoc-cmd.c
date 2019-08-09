@@ -726,6 +726,12 @@ _is_retryable_write (const mongoc_cmd_parts_t *parts,
       return false;
    }
 
+   if (mongoc_uri_get_option_as_bool (parts->client->uri,
+                                      MONGOC_URI_RETRYREADS,
+                                      !MONGOC_DEFAULT_RETRYREADS)) {
+      return false;
+   }
+
    return true;
 }
 
@@ -923,7 +929,7 @@ mongoc_cmd_parts_assemble (mongoc_cmd_parts_t *parts,
       }
 
       /* Conversely, check if the command is retryable if it is a read. */
-      if (_is_retryable_read (parts, server_stream)) {
+      if (_is_retryable_read (parts, server_stream) && !is_get_more) {
          parts->is_retryable_read = true;
       }
 

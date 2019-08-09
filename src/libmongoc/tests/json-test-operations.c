@@ -1773,7 +1773,7 @@ gridfs_download_by_name ()
    test_error ("The download_by_name functionality is part of the Advanced API "
                "for GridFS and the C Driver hasn't implemented the Advanced "
                "API yet.");
-   return true;
+   return false;
 }
 
 

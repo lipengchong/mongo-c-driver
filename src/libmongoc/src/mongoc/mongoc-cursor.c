@@ -28,7 +28,7 @@
 #include "mongoc/mongoc-util-private.h"
 #include "mongoc/mongoc-write-concern-private.h"
 #include "mongoc/mongoc-read-prefs-private.h"
-
+#include "mongoc/mongoc-aggregate-private.h"
 
 #undef MONGOC_LOG_DOMAIN
 #define MONGOC_LOG_DOMAIN "cursor"
@@ -921,20 +921,6 @@ _mongoc_cursor_run_command (mongoc_cursor_t *cursor,
 
    ENTRY;
 
-   if (!strcmp (cmd_name, "getMore")) {
-      is_retryable = false;
-   }
-   if (!strcmp (cmd_name, "aggregate")) {
-      bson_iter_t pipeline_iter;
-      if (bson_iter_init_find (&pipeline_iter, command, "pipeline")
-          && BSON_ITER_HOLDS_ARRAY (&pipeline_iter)
-          && bson_iter_recurse (&pipeline_iter, &pipeline_iter)) {
-         if (_has_write_key (&pipeline_iter)) {
-            is_retryable = false;
-         }
-      }
-   }
-
    mongoc_cmd_parts_init (
       &parts, cursor->client, db, MONGOC_QUERY_NONE, command);
    parts.is_read_command = true;
@@ -1023,6 +1009,20 @@ _mongoc_cursor_run_command (mongoc_cursor_t *cursor,
       parts.read_prefs = cursor->read_prefs;
    }
 
+   if (!strcmp (cmd_name, "getMore")) {
+      is_retryable = false;
+   }
+   if (!strcmp (cmd_name, "aggregate")) {
+      bson_iter_t pipeline_iter;
+      if (bson_iter_init_find (&pipeline_iter, command, "pipeline")
+          && BSON_ITER_HOLDS_ARRAY (&pipeline_iter)
+          && bson_iter_recurse (&pipeline_iter, &pipeline_iter)) {
+         if (_has_write_key (&pipeline_iter)) {
+            is_retryable = false;
+         }
+      }
+   }
+
    if (cursor->write_concern &&
        !mongoc_write_concern_is_default (cursor->write_concern) &&
        server_stream->sd->max_wire_version >= WIRE_VERSION_CMD_WRITE_CONCERN) {
@@ -1049,9 +1049,7 @@ retry:
           MONGOC_READ_ERR_RETRY) {
       is_retryable = false;
 
-      if (server_stream) {
-         mongoc_server_stream_cleanup (server_stream);
-      }
+      mongoc_server_stream_cleanup (server_stream);
 
       server_stream = mongoc_cluster_stream_for_reads (&cursor->client->cluster,
                                                        cursor->read_prefs,
@@ -1676,9 +1674,7 @@ retry:
           MONGOC_READ_ERR_RETRY) {
       is_retryable = false;
 
-      if (retry_server_stream) {
-         mongoc_server_stream_cleanup (retry_server_stream);
-      }
+      mongoc_server_stream_cleanup (retry_server_stream);
 
       retry_server_stream = mongoc_cluster_stream_for_reads (&cursor->client->cluster,
                                                        cursor->read_prefs,

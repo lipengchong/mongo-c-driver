@@ -25,7 +25,7 @@ retryable_reads_test_run_operation (json_test_ctx_t *ctx,
                               *explicit_session ? ctx->sessions[0] : NULL,
                               &reply);
 
-   bson_destroy (&reply);
+   // bson_destroy (&reply);
 
    return res;
 }
