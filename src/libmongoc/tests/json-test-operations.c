@@ -1330,7 +1330,7 @@ find_one (mongoc_collection_t *collection,
 {
    bson_t filter;
    bson_t opts = BSON_INITIALIZER;
-   bson_t *doc;
+   const bson_t *doc;
    mongoc_cursor_t *cursor;
    bson_value_t value;
    bson_error_t error;
@@ -1603,7 +1603,6 @@ list_databases (mongoc_client_t *client,
                 bool name_only)
 {
    mongoc_cursor_t *cursor;
-   bson_error_t error;
    bson_t cmd = BSON_INITIALIZER;
 
    BSON_ASSERT (client);
@@ -1761,8 +1760,9 @@ gridfs_download (mongoc_database_t *db,
    mongoc_stream_read (stream, buf, 1, 1, 0);
 
    mongoc_stream_destroy (stream);
-}
 
+   return true;
+}
 
 /* The download_by_name functionality is part of the Advanced API for GridFS
  * and the C Driver hasn't implemented the Advanced API yet. This is a

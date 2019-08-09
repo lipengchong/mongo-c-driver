@@ -20,7 +20,6 @@ main (int argc, char *argv[])
    char *str;
    const char *uri_string = "mongodb://127.0.0.1/?appname=client-example";
    mongoc_uri_t *uri;
-   bson_t reply;
 
    mongoc_init ();
    if (argc > 1) {
@@ -53,6 +52,7 @@ main (int argc, char *argv[])
 #if 0
    bson_append_utf8 (&query, "hello", -1, "world", -1);
 #endif
+
    collection = mongoc_client_get_collection (client, "test", collection_name);
    cursor = mongoc_collection_find_with_opts (
       collection,
@@ -60,24 +60,12 @@ main (int argc, char *argv[])
       NULL,  /* additional options */
       NULL); /* read prefs, NULL for default */
 
-   mongoc_collection_find_indexes_with_opts (collection, NULL);
-   
    while (mongoc_cursor_next (cursor, &doc)) {
       str = bson_as_canonical_extended_json (doc, NULL);
       fprintf (stdout, "%s\n", str);
       bson_free (str);
    }
 
-   // mongoc_collection_estimated_document_count (collection, NULL, NULL, &reply, &error);
-   // fprintf (stderr, "find result: %s\n", bson_as_json (&reply, NULL));
-   char **tmp;
-   tmp = mongoc_client_get_database_names_with_opts (client, NULL, &error);
-
-   if (tmp != NULL) {
-      fprintf (stderr, "success");
-   } else {
-      fprintf (stderr, "fail == %s\n", tmp);
-   }
    if (mongoc_cursor_error (cursor, &error)) {
       fprintf (stderr, "Cursor Failure: %s\n", error.message);
       return EXIT_FAILURE;
