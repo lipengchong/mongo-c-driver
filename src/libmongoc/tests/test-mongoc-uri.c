@@ -1464,7 +1464,8 @@ test_mongoc_uri_write_concern (void)
       }
 
       if (t->wtimeoutms) {
-         BSON_ASSERT (t->wtimeoutms == mongoc_write_concern_get_wtimeout_int64 (wr));
+         BSON_ASSERT (t->wtimeoutms ==
+                      mongoc_write_concern_get_wtimeout_int64 (wr));
       }
 
       mongoc_uri_destroy (uri);
@@ -2341,8 +2342,7 @@ test_mongoc_uri_duplicates (void)
    str = mongoc_uri_get_replica_set (uri);
    BSON_ASSERT (strcmp (str, "b") == 0);
 
-   RECREATE_URI (MONGOC_URI_RETRYREADS "=false&" MONGOC_URI_RETRYREADS
-                                       "=true");
+   RECREATE_URI (MONGOC_URI_RETRYREADS "=false&" MONGOC_URI_RETRYREADS "=true");
    ASSERT_LOG_DUPE (MONGOC_URI_RETRYREADS);
    BSON_ASSERT (
       mongoc_uri_get_option_as_bool (uri, MONGOC_URI_RETRYREADS, false));

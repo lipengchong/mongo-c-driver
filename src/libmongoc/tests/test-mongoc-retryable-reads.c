@@ -11,8 +11,8 @@
 
 static bool
 retryable_reads_test_run_operation (json_test_ctx_t *ctx,
-                                     const bson_t *test,
-                                     const bson_t *operation)
+                                    const bson_t *test,
+                                    const bson_t *operation)
 {
    bool *explicit_session = (bool *) ctx->config->ctx;
    bson_t reply;
@@ -84,15 +84,13 @@ test_command_with_opts (void *ctx)
          ASSERT_OR_PRINT (false, error);
       }
    }
-   
-   ASSERT_OR_PRINT (
-      mongoc_collection_insert_one (
-         collection, tmp_bson ("{'_id': 0}"), NULL, NULL, &error),
-      error);
-   ASSERT_OR_PRINT (
-      mongoc_collection_insert_one (
-         collection, tmp_bson ("{'_id': 1}"), NULL, NULL, &error),
-      error);
+
+   ASSERT_OR_PRINT (mongoc_collection_insert_one (
+                       collection, tmp_bson ("{'_id': 0}"), NULL, NULL, &error),
+                    error);
+   ASSERT_OR_PRINT (mongoc_collection_insert_one (
+                       collection, tmp_bson ("{'_id': 1}"), NULL, NULL, &error),
+                    error);
 
    cmd = tmp_bson ("{'configureFailPoint': 'failCommand',"
                    " 'mode': {'times': 1},"
@@ -102,8 +100,7 @@ test_command_with_opts (void *ctx)
                        client, "admin", cmd, NULL, server_id, NULL, &error),
                     error);
 
-   cmd = tmp_bson ("{'count': 'coll'}",
-                   collection->collection);
+   cmd = tmp_bson ("{'count': 'coll'}", collection->collection);
 
    ASSERT_OR_PRINT (mongoc_collection_read_command_with_opts (
                        collection, cmd, NULL, NULL, &reply, &error),
@@ -131,11 +128,11 @@ test_retry_reads_off (void *ctx)
    bson_t *cmd;
    bson_error_t error;
    bool res;
-   
+
    uri = test_framework_get_uri ();
    mongoc_uri_set_option_as_bool (uri, "retryreads", false);
    client = mongoc_client_new_from_uri (uri);
-   
+
    /* clean up in case a previous test aborted */
    server_id = mongoc_topology_select_server_id (
       client->topology, MONGOC_SS_WRITE, NULL, &error);
@@ -151,14 +148,13 @@ test_retry_reads_off (void *ctx)
                        client, "admin", cmd, NULL, server_id, NULL, &error),
                     error);
 
-   cmd = tmp_bson ("{'count': 'coll'}",
-                   collection->collection);
+   cmd = tmp_bson ("{'count': 'coll'}", collection->collection);
 
    res = mongoc_collection_read_command_with_opts (
       collection, cmd, NULL, NULL, NULL, &error);
    ASSERT (!res);
-   ASSERT_CONTAINS
-      (error.message, "Failing command due to 'failCommand' failpoint");
+   ASSERT_CONTAINS (error.message,
+                    "Failing command due to 'failCommand' failpoint");
 
    deactivate_fail_points (client, server_id);
 
@@ -179,9 +175,8 @@ test_all_spec_tests (TestSuite *suite)
    char resolved[PATH_MAX];
 
    test_framework_resolve_path (JSON_DIR "/retryable_reads", resolved);
-   install_json_test_suite_with_check (suite,
-                                       resolved,
-                                       test_retryable_reads_cb);
+   install_json_test_suite_with_check (
+      suite, resolved, test_retryable_reads_cb);
 }
 
 void

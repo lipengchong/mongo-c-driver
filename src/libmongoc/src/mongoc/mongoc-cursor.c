@@ -927,12 +927,12 @@ _mongoc_cursor_run_command (mongoc_cursor_t *cursor,
    parts.read_prefs = cursor->read_prefs;
    parts.assembled.operation_id = cursor->operation_id;
    server_stream = _mongoc_cursor_fetch_stream (cursor);
-   
+
    if (!server_stream) {
       _mongoc_bson_init_if_set (reply);
       GOTO (done);
    }
-   
+
    if (opts) {
       if (!bson_iter_init (&iter, opts)) {
          _mongoc_bson_init_if_set (reply);
@@ -950,7 +950,7 @@ _mongoc_cursor_run_command (mongoc_cursor_t *cursor,
          GOTO (done);
       }
    }
-   
+
    if (parts.assembled.session) {
       /* initial query/aggregate/etc, and opts contains "sessionId" */
       BSON_ASSERT (!cursor->client_session);
@@ -1015,9 +1015,9 @@ _mongoc_cursor_run_command (mongoc_cursor_t *cursor,
    }
    if (!strcmp (cmd_name, "aggregate")) {
       bson_iter_t pipeline_iter;
-      if (bson_iter_init_find (&pipeline_iter, command, "pipeline")
-          && BSON_ITER_HOLDS_ARRAY (&pipeline_iter)
-          && bson_iter_recurse (&pipeline_iter, &pipeline_iter)) {
+      if (bson_iter_init_find (&pipeline_iter, command, "pipeline") &&
+          BSON_ITER_HOLDS_ARRAY (&pipeline_iter) &&
+          bson_iter_recurse (&pipeline_iter, &pipeline_iter)) {
          if (_has_write_key (&pipeline_iter)) {
             is_retryable = false;
          }
@@ -1040,7 +1040,7 @@ _mongoc_cursor_run_command (mongoc_cursor_t *cursor,
 retry:
    ret = mongoc_cluster_run_command_monitored (
       &cursor->client->cluster, &parts.assembled, reply, &cursor->error);
-   
+
    if (ret) {
       memset (&cursor->error, 0, sizeof (bson_error_t));
    }
@@ -1059,8 +1059,7 @@ retry:
                                                        &cursor->error);
 
       if (server_stream &&
-          server_stream->sd->max_wire_version >=
-             WIRE_VERSION_RETRY_READS) {
+          server_stream->sd->max_wire_version >= WIRE_VERSION_RETRY_READS) {
          cursor->server_id = server_stream->sd->id;
          parts.assembled.server_stream = server_stream;
          bson_destroy (reply);

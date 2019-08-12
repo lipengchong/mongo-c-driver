@@ -61,8 +61,8 @@ mongoc_error_has_label (const bson_t *reply, const char *label)
  */
 mongoc_read_err_type_t
 _mongoc_read_error_get_type (bool cmd_ret,
-                              const bson_error_t *cmd_err,
-                              const bson_t *reply)
+                             const bson_error_t *cmd_err,
+                             const bson_t *reply)
 {
    bson_error_t error;
 
