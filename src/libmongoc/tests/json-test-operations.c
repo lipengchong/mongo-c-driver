@@ -1755,9 +1755,10 @@ gridfs_download (mongoc_database_t *db,
 
    bucket = mongoc_gridfs_bucket_new (db, NULL, read_prefs, &error);
    stream = mongoc_gridfs_bucket_open_download_stream (bucket, &value, &error);
-   ASSERT (stream);
 
-   mongoc_stream_read (stream, buf, 1, 1, 0);
+   if (stream != NULL) {
+      mongoc_stream_read (stream, buf, 1, 1, 0);
+   }
 
    mongoc_stream_destroy (stream);
 
