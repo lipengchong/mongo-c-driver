@@ -1009,6 +1009,7 @@ _mongoc_cursor_run_command (mongoc_cursor_t *cursor,
       parts.read_prefs = cursor->read_prefs;
    }
 
+   is_retryable = _is_retryable_read (&parts, server_stream);
    if (!strcmp (cmd_name, "getMore")) {
       is_retryable = false;
    }
@@ -1647,50 +1648,21 @@ _mongoc_cursor_response_read (mongoc_cursor_t *cursor,
 
 /* sets cursor error if could not get the next batch. */
 void
-_mongoc_cursor_response_refresh (
-   mongoc_cursor_t *cursor,
-   const bson_t *command,
-   const bson_t *opts,
-   mongoc_cursor_response_t *response,
-   bool is_retryable)
+_mongoc_cursor_response_refresh (mongoc_cursor_t *cursor,
+                                 const bson_t *command,
+                                 const bson_t *opts,
+                                 mongoc_cursor_response_t *response)
 {
-   mongoc_server_stream_t *retry_server_stream = NULL;
-   bool ret;
    ENTRY;
 
    bson_destroy (&response->reply);
 
-retry:
    /* server replies to find / aggregate with {cursor: {id: N, firstBatch: []}},
     * to getMore command with {cursor: {id: N, nextBatch: []}}. */
-   ret = _mongoc_cursor_run_command (cursor, command, opts, &response->reply);
-   if (ret && _mongoc_cursor_start_reading_response (cursor, response)) {
-      memset (&cursor->error, 0, sizeof (bson_error_t));
+   if (_mongoc_cursor_run_command (cursor, command, opts, &response->reply) &&
+       _mongoc_cursor_start_reading_response (cursor, response)) {
       return;
    }
-
-   if (is_retryable &&
-       _mongoc_read_error_get_type (ret, &cursor->error, &response->reply) ==
-          MONGOC_READ_ERR_RETRY) {
-      is_retryable = false;
-
-      mongoc_server_stream_cleanup (retry_server_stream);
-
-      retry_server_stream = mongoc_cluster_stream_for_reads (&cursor->client->cluster,
-                                                       cursor->read_prefs,
-                                                       cursor->client_session,
-                                                       &response->reply,
-                                                       &cursor->error);
-
-      if (retry_server_stream &&
-          retry_server_stream->sd->max_wire_version >=
-             WIRE_VERSION_RETRY_READS) {
-         cursor->server_id = retry_server_stream->sd->id;
-         bson_destroy (&response->reply);
-         GOTO (retry);
-      }
-   }
-
    if (!cursor->error.domain) {
       bson_set_error (&cursor->error,
                       MONGOC_ERROR_PROTOCOL,
@@ -1699,7 +1671,6 @@ retry:
                       _mongoc_get_command_name (command));
    }
 }
-
 
 void
 _mongoc_cursor_prepare_getmore_command (mongoc_cursor_t *cursor,

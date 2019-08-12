@@ -69,7 +69,7 @@ _prime (mongoc_cursor_t *cursor)
    /* server replies to aggregate/listIndexes/listCollections with:
     * {cursor: {id: N, firstBatch: []}} */
    _mongoc_cursor_response_refresh (
-      cursor, &data->cmd, &copied_opts, &data->response, true);
+      cursor, &data->cmd, &copied_opts, &data->response);
    data->reading_from = CMD_RESPONSE;
    bson_destroy (&copied_opts);
    return IN_BATCH;
@@ -112,7 +112,7 @@ _get_next_batch (mongoc_cursor_t *cursor)
    case GETMORE_CMD:
       _mongoc_cursor_prepare_getmore_command (cursor, &getmore_cmd);
       _mongoc_cursor_response_refresh (
-         cursor, &getmore_cmd, NULL /* opts */, &data->response, false);
+         cursor, &getmore_cmd, NULL /* opts */, &data->response);
       bson_destroy (&getmore_cmd);
       data->reading_from = CMD_RESPONSE;
       return IN_BATCH;

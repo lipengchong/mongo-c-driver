@@ -80,7 +80,7 @@ _get_next_batch (mongoc_cursor_t *cursor)
 
    _mongoc_cursor_prepare_getmore_command (cursor, &getmore_cmd);
    _mongoc_cursor_response_refresh (
-      cursor, &getmore_cmd, NULL /* opts */, &data->response, false);
+      cursor, &getmore_cmd, NULL /* opts */, &data->response);
    bson_destroy (&getmore_cmd);
 
    _update_post_batch_resume_token (cursor);

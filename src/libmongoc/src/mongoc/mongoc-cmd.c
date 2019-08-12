@@ -726,20 +726,14 @@ _is_retryable_write (const mongoc_cmd_parts_t *parts,
       return false;
    }
 
-   if (mongoc_uri_get_option_as_bool (parts->client->uri,
-                                      MONGOC_URI_RETRYREADS,
-                                      !MONGOC_DEFAULT_RETRYREADS)) {
-      return false;
-   }
-
    return true;
 }
 
 
 /* Check if the read command should support retryable behavior. */
-static bool
+bool
 _is_retryable_read (const mongoc_cmd_parts_t *parts,
-                     const mongoc_server_stream_t *server_stream)
+                    const mongoc_server_stream_t *server_stream)
 {
    if (!parts->assembled.session) {
       return false;

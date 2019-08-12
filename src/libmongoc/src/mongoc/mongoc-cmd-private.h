@@ -132,6 +132,10 @@ mongoc_cmd_is_compressible (mongoc_cmd_t *cmd);
 void
 mongoc_cmd_parts_cleanup (mongoc_cmd_parts_t *op);
 
+bool
+_is_retryable_read (const mongoc_cmd_parts_t *parts,
+                    const mongoc_server_stream_t *server_stream);
+
 BSON_END_DECLS
 
 
