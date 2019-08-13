@@ -2299,6 +2299,129 @@ prose_test_14 (void *test_ctx)
 
 
 void
+prose_test_17 (void *test_ctx)
+{
+   mock_server_t *server;
+   request_t *request;
+   future_t *future;
+   mongoc_client_t *client;
+   mongoc_collection_t *coll;
+   mongoc_change_stream_t *stream;
+   const bson_t *next_doc = NULL;
+
+   server = mock_server_with_autoismaster (8);
+   mock_server_run (server);
+   client = mongoc_client_new_from_uri (mock_server_get_uri (server));
+
+   coll = mongoc_client_get_collection (client, "db", "coll");
+   future = future_collection_watch (
+      coll, tmp_bson ("{}"), tmp_bson ("{'startAfter': {'x': 1}}"));
+
+   request = mock_server_receives_msg (
+      server,
+      MONGOC_QUERY_NONE,
+      tmp_bson ("{ 'aggregate': 'coll', 'pipeline' : [ { '$changeStream': { "
+                "'startAfter': {'x': 1} } } ]}"));
+
+   mock_server_replies_simple (
+      request,
+      "{'cursor': {'id': 123, 'ns': 'db.coll', 'firstBatch': []}, 'ok': 1 }");
+
+   request_destroy (request);
+
+   stream = future_get_mongoc_change_stream_ptr (future);
+   ASSERT (stream);
+
+   future_change_stream_next (stream, &next_doc);
+
+   request = mock_server_receives_msg (
+      server,
+      MONGOC_QUERY_NONE,
+      tmp_bson ("{ 'getMore': {'$numberLong': '123'}, 'collection': 'coll' }"));
+
+   mock_server_replies_simple (
+      request, "{ 'code': 10107, 'errmsg': 'not master', 'ok': 0 }");
+
+   request_destroy (request);
+
+   request = mock_server_receives_msg (
+      server,
+      MONGOC_QUERY_NONE,
+      tmp_bson ("{ 'aggregate': 'coll', 'pipeline': [ { "
+                "'$changeStream': { 'startAfter': {'x': 1} } "
+                "}]}"));
+
+   request_destroy (request);
+   future_destroy (future);
+
+   mongoc_collection_destroy (coll);
+   mock_server_destroy (server);
+}
+
+
+void
+prose_test_18 (void *test_ctx)
+{
+   mock_server_t *server;
+   request_t *request;
+   future_t *future;
+   mongoc_client_t *client;
+   mongoc_collection_t *coll;
+   mongoc_change_stream_t *stream;
+   const bson_t *next_doc = NULL;
+
+   server = mock_server_with_autoismaster (8);
+   mock_server_run (server);
+   client = mongoc_client_new_from_uri (mock_server_get_uri (server));
+
+   coll = mongoc_client_get_collection (client, "db", "coll");
+   future = future_collection_watch (
+      coll, tmp_bson ("{}"), tmp_bson ("{'startAfter': {'x': 1}}"));
+
+   request = mock_server_receives_msg (
+      server,
+      MONGOC_QUERY_NONE,
+      tmp_bson ("{ 'aggregate': 'coll', 'pipeline' : [ { '$changeStream': { "
+                "'startAfter': {'x': 1} } } ]}"));
+
+   mock_server_replies_simple (request, "{'cursor': {'id': 123, 'ns': "
+                                        "'db.coll', 'firstBatch': [{'_id': "
+                                        "{'y': 1}}]}, 'ok': 1 }");
+   
+   request_destroy (request);
+
+   stream = future_get_mongoc_change_stream_ptr (future);
+   ASSERT (stream);
+
+   mongoc_change_stream_next (stream, &next_doc);
+   future_change_stream_next (stream, &next_doc);
+
+   request = mock_server_receives_msg (
+      server,
+      MONGOC_QUERY_NONE,
+      tmp_bson ("{ 'getMore': {'$numberLong': '123'}, 'collection': 'coll' }"));
+
+   mock_server_replies_simple (
+      request, "{ 'code': 10107, 'errmsg': 'not master', 'ok': 0 }");
+   
+   request_destroy (request);
+
+   request = mock_server_receives_msg (
+      server,
+      MONGOC_QUERY_NONE,
+      tmp_bson ("{ 'aggregate': 'coll', 'pipeline': [ { "
+                "'$changeStream': { 'resumeAfter': {'y': 1} } "
+                "}]}"));
+
+   request_destroy (request);
+   future_destroy (future);
+
+   mongoc_collection_destroy (coll);
+   mock_server_destroy (server);
+}
+
+
+void
 test_change_stream_install (TestSuite *suite)
 {
    char resolved[PATH_MAX];
@@ -2456,6 +2579,20 @@ test_change_stream_install (TestSuite *suite)
                       NULL,
                       test_framework_skip_if_mongos,
                       test_framework_skip_if_not_rs_version_7);
+   // TOOD: fix CDRIVER-3319 before uncommenting this test
+   // TestSuite_AddFull (suite,
+   //                    "/change_stream/live/prose_test_17",
+   //                    prose_test_17,
+   //                    NULL,
+   //                    NULL,
+   //                    test_framework_skip_if_max_wire_version_less_than_8);
+   TestSuite_AddFull (suite,
+                      "/change_stream/live/prose_test_18",
+                      prose_test_18,
+                      NULL,
+                      NULL,
+                      test_framework_skip_if_max_wire_version_less_than_8);
+
 
    test_framework_resolve_path (JSON_DIR "/change_streams", resolved);
    install_json_test_suite (suite, resolved, &test_change_stream_spec_cb);
